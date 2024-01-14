@@ -17,6 +17,10 @@ Module.register('MMM-GrocyLists', {
     updateInterval: 300000, // 10 Minutes
     retryDelay:     5000,
     tableClass:     'small',
+    showTime:       true,
+    showOverdueOnly:false,
+    overdueClass:   '',
+    removeRegex:    undefined
   },
 
   requiresVersion: '2.1.0', // Required version of MagicMirror
@@ -110,10 +114,11 @@ Module.register('MMM-GrocyLists', {
           if (drChore.next_estimated_execution_time !== NULLDATE) {
             const chore = {};
 
-            chore.title = drChore.chore_name;
+            chore.title = this.config.removeRegex ? drChore.chore_name.toString().replace(this.config.removeRegex, '') : drChore.chore_name;
             chore.startDate = Date.parse(drChore.next_estimated_execution_time);
 
-            chores.push(chore);
+            if (!this.config.showOverdueOnly || this.config.showOverdueOnly && chore.startDate <= Date.now())
+              chores.push(chore);
           }
         }
       }
@@ -171,30 +176,38 @@ Module.register('MMM-GrocyLists', {
         titleWrapper.innerHTML = chore.title;
         titleWrapper.className = 'title bright';
 
-        const timeWrapper = document.createElement('td');
+        if (this.config.overdueClass) {
+          titleWrapper.className = titleWrapper.className + ' ' + this.config.overdueClass;
+        }
+
         choreWrapper.appendChild(titleWrapper);
 
-        const now = new Date();
-        // Define second, minute, hour, and day variables
-        const oneSecond = 1000; // 1,000 milliseconds
-        const oneMinute = oneSecond * 60;
-        const oneHour = oneMinute * 60;
-        const oneDay = oneHour * 24;
+        if (this.config.showTime) {
+          const timeWrapper = document.createElement('td');
 
-        if (chore.today) {
-          timeWrapper.innerHTML = this.capFirst(this.translate('TODAY'));
-        } else if (chore.startDate - now < oneDay && chore.startDate - now > 0) {
-          timeWrapper.innerHTML = this.capFirst(this.translate('TOMORROW'));
-        } else if (chore.startDate - now < 2 * oneDay && chore.startDate - now > 0) {
-          if (this.translate('DAYAFTERTOMORROW') !== 'DAYAFTERTOMORROW') {
-            timeWrapper.innerHTML = this.capFirst(this.translate('DAYAFTERTOMORROW'));
+          const now = new Date();
+          // Define second, minute, hour, and day variables
+          const oneSecond = 1000; // 1,000 milliseconds
+          const oneMinute = oneSecond * 60;
+          const oneHour = oneMinute * 60;
+          const oneDay = oneHour * 24;
+
+          if (chore.today) {
+            timeWrapper.innerHTML = this.capFirst(this.translate('TODAY'));
+          } else if (chore.startDate - now < oneDay && chore.startDate - now > 0) {
+            timeWrapper.innerHTML = this.capFirst(this.translate('TOMORROW'));
+          } else if (chore.startDate - now < 2 * oneDay && chore.startDate - now > 0) {
+            if (this.translate('DAYAFTERTOMORROW') !== 'DAYAFTERTOMORROW') {
+              timeWrapper.innerHTML = this.capFirst(this.translate('DAYAFTERTOMORROW'));
+            } else {
+              timeWrapper.innerHTML = this.capFirst(moment(chore.startDate, 'x').fromNow());
+            }
           } else {
-            timeWrapper.innerHTML = this.capFirst(moment(chore.startDate, 'x').fromNow());
+            timeWrapper.innerHTML = this.capFirst(moment(chore.startDate, 'x').from(moment().format('YYYYMMDD')));
           }
-        } else {
-          timeWrapper.innerHTML = this.capFirst(moment(chore.startDate, 'x').from(moment().format('YYYYMMDD')));
+          choreWrapper.appendChild(timeWrapper);
         }
-        choreWrapper.appendChild(timeWrapper);
+
         wrapper.appendChild(choreWrapper);
       }
     }
